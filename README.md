@@ -28,3 +28,13 @@ Continue building your app on:
 2. Deploy your chats from the v0 interface
 3. Changes are automatically pushed to this repository
 4. Vercel deploys the latest version from this repository
+
+
+in the register page i want you to add a new data field which the user can upload his own person photo with same requirements like the proof to avoid bugs for testing and add a column for it in supabase and show it in the admin and accept emails and send it through resend api and check if
+it’s working for others domains like icloud / outlook / yahoo / basically i want to cover most of them including gmail
+
+in the admin page i want : 
+- to see all data in the dashboard including option to see photos, proof and id of the ticket
+- option to accept, decline, delete, view the proof, send the ticket, generate the ticket 
+- email notification for registration and confirmation with the photo of the generated ticket
+- to make search features in the admin dashboard with filtering for status of the ticket with tabs
