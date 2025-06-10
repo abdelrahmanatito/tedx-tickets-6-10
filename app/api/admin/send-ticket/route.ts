@@ -1,140 +1,79 @@
-import { NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
+import { supabase } from "@/lib/supabase"
 
-export async function POST(req: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const { registration, ticketData } = await req.json()
+    const { registration, ticketData } = await request.json()
 
-    // Find the section that sends the email and update it with retry logic
+    if (!process.env.RESEND_API_KEY) {
+      return NextResponse.json({ error: "Email service not configured" }, { status: 500 })
+    }
 
-    // Send ticket email to the user directly
-    let emailSent = false
-    let emailError = null
-
-    try {
-      // Check if RESEND_API_KEY is available
-      if (!process.env.RESEND_API_KEY) {
-        console.error("RESEND_API_KEY is not configured")
-        return NextResponse.json({ error: "Email service not configured" }, { status: 500 })
-      }
-
-      const emailContent = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-      <div style="text-align: center; margin-bottom: 30px;">
-        <h1 style="color: #dc2626; font-size: 36px; margin: 0;">TED<span style="color: #dc2626;">x</span>ECU</h1>
-        <p style="color: #6b7280; margin: 5px 0;">x = independently organized TED event</p>
-        <p style="color: #6b7280; font-size: 14px; margin: 0;">Ideas worth spreading</p>
-      </div>
-      
-      <div style="background: linear-gradient(135deg, #dc2626, #b91c1c); color: white; padding: 30px; border-radius: 12px; text-align: center; margin-bottom: 30px;">
-        <h2 style="margin: 0 0 10px 0; font-size: 28px;">🎉 Your ticket is confirmed!</h2>
-        <p style="margin: 0; opacity: 0.9;">Get ready for an amazing experience!</p>
-      </div>
-      
-      <p style="font-size: 18px; color: #374151;">Dear ${registration.name},</p>
-      <p style="color: #6b7280; line-height: 1.6;">
-        Congratulations! Your payment has been confirmed and your ticket is ready. 
-        We're excited to have you join us at TEDxECU for an inspiring day of ideas worth spreading.
-      </p>
-      
-      <div style="background: #f9fafb; padding: 25px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #dc2626;">
-        <h3 style="color: #374151; margin-top: 0; margin-bottom: 15px;">🎫 Your Ticket Details</h3>
-        <div style="display: grid; gap: 10px;">
-          <p style="margin: 0;"><strong>Name:</strong> ${ticketData.name}</p>
-          <p style="margin: 0;"><strong>Email:</strong> ${registration.email}</p>
-          <p style="margin: 0;"><strong>Phone:</strong> ${registration.phone}</p>
-          <p style="margin: 0;"><strong>University:</strong> ${registration.university}</p>
-          <p style="margin: 0;"><strong>Ticket ID:</strong> <span style="color: #dc2626; font-weight: bold; font-size: 18px;">${ticketData.ticketId}</span></p>
-          <p style="margin: 0;"><strong>Date:</strong> ${ticketData.date}</p>
-          <p style="margin: 0;"><strong>Seat:</strong> ${ticketData.seat}</p>
+    const emailContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="color: #dc2626; font-size: 36px; margin: 0;">TED<span style="color: #dc2626;">x</span>ECU</h1>
+          <p style="color: #6b7280; margin: 5px 0;">x = independently organized TED event</p>
+        </div>
+        
+        <div style="background: linear-gradient(135deg, #dc2626, #b91c1c); color: white; padding: 30px; border-radius: 12px; text-align: center; margin-bottom: 30px;">
+          <h2 style="margin: 0 0 10px 0; font-size: 28px;">🎉 Your ticket is ready!</h2>
+          <p style="margin: 0; opacity: 0.9;">Get ready for an amazing experience!</p>
+        </div>
+        
+        <p style="font-size: 18px; color: #374151;">Dear ${registration.name},</p>
+        <p style="color: #6b7280; line-height: 1.6;">
+          Your ticket for TEDxECU 2025 is confirmed and ready!
+        </p>
+        
+        <div style="background: #f9fafb; padding: 25px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #dc2626;">
+          <h3 style="color: #374151; margin-top: 0;">🎫 Your Ticket Details</h3>
+          <p><strong>Name:</strong> ${ticketData.name}</p>
+          <p><strong>Email:</strong> ${registration.email}</p>
+          <p><strong>Ticket ID:</strong> <span style="color: #dc2626; font-weight: bold;">${ticketData.ticketId}</span></p>
+          <p><strong>Date:</strong> ${ticketData.date}</p>
+          <p><strong>Time:</strong> ${ticketData.time}</p>
+          <p><strong>Venue:</strong> ${ticketData.venue}</p>
+          <p><strong>Seat:</strong> ${ticketData.seat}</p>
+        </div>
+        
+        <div style="background: #fef3c7; padding: 20px; border-radius: 8px; margin: 25px 0;">
+          <h4 style="color: #92400e; margin-top: 0;">📱 Important Instructions:</h4>
+          <ul style="color: #92400e; margin: 0; padding-left: 20px;">
+            <li>Present your Ticket ID (${ticketData.ticketId}) at the venue</li>
+            <li>Arrive 30 minutes before the event starts</li>
+            <li>Bring a valid ID for verification</li>
+          </ul>
         </div>
       </div>
-      
-      <div style="background: #fef3c7; padding: 20px; border-radius: 8px; margin: 25px 0;">
-        <h4 style="color: #92400e; margin-top: 0;">📱 Important Instructions for the Attendee:</h4>
-        <ul style="color: #92400e; margin: 0; padding-left: 20px;">
-          <li>Save this email and screenshot your ticket details</li>
-          <li>Present your <strong>Ticket ID (${ticketData.ticketId})</strong> at the venue</li>
-          <li>Arrive 30 minutes before the event starts</li>
-          <li>Bring a valid ID for verification</li>
-        </ul>
-      </div>
-      
-      <div style="text-align: center; margin: 30px 0;">
-        <p style="color: #374151; font-size: 18px; margin-bottom: 10px;">We look forward to seeing you at TEDxECU!</p>
-        <p style="color: #6b7280; margin: 0;">Get ready to be inspired by ideas worth spreading.</p>
-      </div>
-      
-      <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center;">
-        <p style="color: #6b7280; font-size: 14px; margin: 0;">
-          This ticket was generated by the TEDxECU registration system.
-        </p>
-      </div>
-    </div>
-  `
+    `
 
-      // Add retry logic for email sending
-      let retries = 3
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: "onboarding@resend.dev",
+        to: [registration.email],
+        subject: "🎫 Your TEDxECU Ticket is Ready!",
+        html: emailContent,
+      }),
+    })
 
-      while (retries > 0) {
-        try {
-          const emailResponse = await fetch("https://api.resend.com/emails", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              from: "onboarding@resend.dev", // Use Resend's default verified sender
-              to: [registration.email], // Send directly to the user
-              subject: `🎫 Your TEDxECU Ticket - Payment Confirmed!`,
-              html: emailContent,
-            }),
-          })
+    const result = await response.json()
 
-          const result = await emailResponse.json()
-
-          if (!emailResponse.ok) {
-            emailError = result.message || "Email sending failed"
-            console.error(`Email API error (attempt ${4 - retries}/3):`, result)
-            retries--
-
-            // Wait before retrying
-            if (retries > 0) {
-              await new Promise((resolve) => setTimeout(resolve, (4 - retries) * 1000))
-              continue
-            }
-          } else {
-            // Success!
-            emailSent = true
-            break
-          }
-        } catch (error) {
-          emailError = String(error)
-          console.error(`Email sending exception (attempt ${4 - retries}/3):`, error)
-          retries--
-
-          // Wait before retrying
-          if (retries > 0) {
-            await new Promise((resolve) => setTimeout(resolve, (4 - retries) * 1000))
-            continue
-          }
-        }
-      }
-
-      if (emailSent) {
-        return NextResponse.json({ message: "Ticket sent successfully!" }, { status: 200 })
-      } else {
-        return NextResponse.json(
-          { error: emailError || "Failed to send email after multiple retries" },
-          { status: 500 },
-        )
-      }
-    } catch (error) {
-      console.error("Error sending ticket:", error)
-      return NextResponse.json({ error: "Failed to send ticket" }, { status: 500 })
+    if (!response.ok) {
+      return NextResponse.json({ error: result.message || "Email sending failed" }, { status: 500 })
     }
-  } catch (e) {
-    console.log(e)
-    return NextResponse.json({ message: "Error", e }, { status: 400 })
+
+    // Update ticket_sent status
+    await supabase.from("registrations").update({ ticket_sent: true }).eq("id", registration.id)
+
+    return NextResponse.json({ message: "Ticket sent successfully!" })
+  } catch (error) {
+    console.error("Error sending ticket:", error)
+    return NextResponse.json({ error: "Failed to send ticket" }, { status: 500 })
   }
 }

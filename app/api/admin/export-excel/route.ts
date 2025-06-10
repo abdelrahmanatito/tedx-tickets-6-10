@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js"
-
-const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+import { supabase } from "@/lib/supabase"
 
 export async function GET() {
   try {
@@ -17,6 +15,7 @@ export async function GET() {
       "Name",
       "Email",
       "Phone",
+      "Phone Type",
       "University",
       "Payment Status",
       "Ticket ID",
@@ -29,6 +28,7 @@ export async function GET() {
       registration.name,
       registration.email,
       registration.phone,
+      registration.phone_type,
       registration.university,
       registration.payment_status,
       registration.ticket_id || "",

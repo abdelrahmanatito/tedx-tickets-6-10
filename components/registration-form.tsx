@@ -14,7 +14,7 @@ export function RegistrationForm() {
     name: "",
     email: "",
     phone: "",
-    phoneType: "egyptian", // Default to Egyptian
+    phoneType: "egyptian",
     university: "",
     paymentProof: null as File | null,
   })
@@ -23,10 +23,9 @@ export function RegistrationForm() {
   const [message, setMessage] = useState("")
   const [validationErrors, setValidationErrors] = useState<{ [key: string]: string }>({})
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
 
-    // Clear validation error when field is edited
     if (validationErrors[name]) {
       setValidationErrors((prev) => {
         const newErrors = { ...prev }
@@ -36,10 +35,8 @@ export function RegistrationForm() {
     }
 
     if (name === "phone") {
-      // Allow any characters for phone since we're adding a type selector
       setFormData((prev) => ({ ...prev, [name]: value }))
     } else if (name === "name" || name === "university") {
-      // For name and university, only allow letters, spaces, and some special characters
       const sanitizedValue = value.replace(/[^a-zA-Z\s\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\u0590-\u05FF.,'-]/g, "")
       setFormData((prev) => ({ ...prev, [name]: sanitizedValue }))
     } else {
@@ -50,7 +47,6 @@ export function RegistrationForm() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null
 
-    // Clear previous file validation error
     if (validationErrors.paymentProof) {
       setValidationErrors((prev) => {
         const newErrors = { ...prev }
@@ -60,7 +56,6 @@ export function RegistrationForm() {
     }
 
     if (file) {
-      // Check file type
       const fileType = file.type.toLowerCase()
       const validTypes = ["image/jpeg", "image/jpg", "image/png", "application/pdf"]
 
@@ -72,7 +67,6 @@ export function RegistrationForm() {
         return
       }
 
-      // Check file size (max 10MB)
       if (file.size > 10 * 1024 * 1024) {
         setValidationErrors((prev) => ({
           ...prev,
@@ -88,33 +82,28 @@ export function RegistrationForm() {
   const validateForm = () => {
     const errors: { [key: string]: string } = {}
 
-    // Name validation (5-50 chars, no numbers or special chars)
     if (formData.name.length < 5) {
       errors.name = "Name must be at least 5 characters"
     } else if (formData.name.length > 50) {
       errors.name = "Name must be less than 50 characters"
     }
 
-    // Email validation
     if (!/^\S+@\S+\.\S+$/.test(formData.email)) {
       errors.email = "Please enter a valid email address"
     }
 
-    // Phone validation
     if (!formData.phone) {
       errors.phone = "Phone number is required"
     } else if (formData.phoneType === "egyptian" && !/^(01)[0-9]{9}$/.test(formData.phone)) {
       errors.phone = "Egyptian phone numbers must start with 01 and be 11 digits"
     }
 
-    // University validation (same as name)
     if (formData.university.length < 5) {
       errors.university = "University name must be at least 5 characters"
     } else if (formData.university.length > 50) {
       errors.university = "University name must be less than 50 characters"
     }
 
-    // Payment proof validation
     if (!formData.paymentProof) {
       errors.paymentProof = "Payment proof is required"
     }
@@ -126,7 +115,6 @@ export function RegistrationForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    // Validate form
     if (!validateForm()) {
       setSubmitStatus("error")
       setMessage("Please fix the errors in the form")
@@ -172,11 +160,9 @@ export function RegistrationForm() {
           university: "",
           paymentProof: null,
         })
-        // Reset file input
         const fileInput = document.getElementById("paymentProof") as HTMLInputElement
         if (fileInput) fileInput.value = ""
       } else if (response.status === 409) {
-        // Conflict - duplicate email
         setSubmitStatus("info")
         setMessage(result.error || "This email is already registered.")
       } else {

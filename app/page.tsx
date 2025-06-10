@@ -12,7 +12,7 @@ export default function HomePage() {
           <div className="text-center mb-12">
             <div className="flex items-center justify-center gap-4 mb-6">
               <div className="w-16 h-16 bg-white rounded-xl flex items-center justify-center shadow-lg">
-                <img src="/images/tedx-logo.png" alt="TEDx Logo" className="w-12 h-auto" />
+                <div className="text-red-600 font-bold text-xl">TEDx</div>
               </div>
               <h1 className="text-5xl font-black text-white">
                 TED<span className="text-red-500">x</span>ECU
@@ -96,9 +96,9 @@ export default function HomePage() {
                     </p>
                   </div>
                   <div className="space-y-1 text-slate-400">
-                    <p>• Payment is processed securely through Zirp</p>
-                    <p>• You will be redirected to our payment provider</p>
-                    <p>• Confirmation email will be sent after payment</p>
+                    <p>• Payment is processed securely</p>
+                    <p>• Upload your payment screenshot</p>
+                    <p>• Confirmation email will be sent after verification</p>
                     <p>• Bring a valid ID to the event</p>
                   </div>
                 </div>
@@ -114,7 +114,7 @@ export default function HomePage() {
         <div className="container mx-auto px-4 py-8">
           <div className="text-center">
             <div className="flex items-center justify-center gap-3 mb-4">
-              <img src="/images/tedx-logo.png" alt="TEDx Logo" className="w-8 h-auto" />
+              <div className="text-red-600 font-bold text-lg">TEDx</div>
               <span className="text-white font-bold text-xl">TEDxECU</span>
             </div>
             <p className="text-slate-400 text-sm">

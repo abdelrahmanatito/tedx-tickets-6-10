@@ -1,354 +1,123 @@
-function generateProfessionalTicketHtml({
-  name,
-  ticketId,
-  email,
-  university,
-  date,
-  time,
-  venue,
-  seat,
-}: {
-  name: string
-  ticketId: string
-  email: string
-  university: string
-  date: string
-  time: string
-  venue: string
-  seat: string
-}) {
-  // Create an inline SVG for the TEDx logo
-  const tedxLogoSvg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="60" height="40" viewBox="0 0 60 40" fill="none">
-      <rect width="60" height="40" fill="white"/>
-      <text x="0" y="24" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="#dc2626">TED</text>
-      <text x="30" y="24" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="#000000">x</text>
-      <text x="38" y="24" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="#f5c842">ECU</text>
-    </svg>
-  `
+import { type NextRequest, NextResponse } from "next/server"
+import { supabase } from "@/lib/supabase"
 
-  // Base64 encode the SVG for use in an img tag
-  const tedxLogoBase64 = Buffer.from(tedxLogoSvg).toString("base64")
+export async function POST(request: NextRequest) {
+  try {
+    const { id, status } = await request.json()
 
-  return `
-    <div style="
-      width: 900px;
-      height: 500px;
-      background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
-      position: relative;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      color: #ffffff;
-      overflow: hidden;
-      border-radius: 20px;
-      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
-      border: 1px solid #334155;
-    ">
-      <!-- Geometric background pattern -->
-      <div style="
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-image: 
-          radial-gradient(circle at 20% 80%, rgba(239, 68, 68, 0.1) 0%, transparent 50%),
-          radial-gradient(circle at 80% 20%, rgba(239, 68, 68, 0.1) 0%, transparent 50%),
-          linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.02) 50%, transparent 70%);
-        opacity: 0.8;
-      "></div>
-      
-      <!-- Header Section -->
-      <div style="
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 120px;
-        background: linear-gradient(90deg, #ef4444 0%, #dc2626 100%);
-        display: flex;
-        align-items: center;
-        padding: 0 40px;
-        box-sizing: border-box;
-      ">
-        <!-- TEDx Logo -->
-        <div style="
-          display: flex;
-          align-items: center;
-          gap: 20px;
-        ">
-          <div style="
-            width: 80px;
-            height: 80px;
-            background: white;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
-          ">
-            <img src="data:image/svg+xml;base64,${tedxLogoBase64}" 
-                 style="width: 60px; height: 40px;" 
-                 alt="TEDx Logo" />
-          </div>
-          <div>
-            <div style="
-              font-size: 42px;
-              font-weight: 900;
-              color: white;
-              letter-spacing: -1px;
-              margin-bottom: -5px;
-            ">TED<span style="color: white;">x</span><span style="color: #fbbf24;">ECU</span></div>
-            <div style="
-              font-size: 14px;
-              color: rgba(255, 255, 255, 0.9);
-              font-weight: 500;
-              letter-spacing: 1px;
-            ">x = independently organized TED event</div>
-          </div>
-        </div>
-        
-        <!-- Event Theme -->
-        <div style="
-          margin-left: auto;
-          text-align: right;
-        ">
-          <div style="
-            font-size: 18px;
-            color: white;
-            font-weight: 600;
-            margin-bottom: 5px;
-          ">2025</div>
-          <div style="
-            font-size: 14px;
-            color: rgba(255, 255, 255, 0.8);
-            font-style: italic;
-          ">Ideas Worth Spreading</div>
-        </div>
+    if (!id || !status) {
+      return NextResponse.json({ error: "ID and status are required" }, { status: 400 })
+    }
+
+    if (!["confirmed", "rejected"].includes(status)) {
+      return NextResponse.json({ error: "Invalid status" }, { status: 400 })
+    }
+
+    // Generate ticket ID for confirmed registrations
+    let ticketId = null
+    if (status === "confirmed") {
+      ticketId = Math.floor(100000 + Math.random() * 900000).toString()
+    }
+
+    const updateData: any = {
+      payment_status: status,
+      confirmed_at: status === "confirmed" ? new Date().toISOString() : null,
+    }
+
+    if (ticketId) {
+      updateData.ticket_id = ticketId
+    }
+
+    const { data, error } = await supabase.from("registrations").update(updateData).eq("id", id).select().single()
+
+    if (error) {
+      console.error("Database error:", error)
+      return NextResponse.json({ error: "Failed to update status" }, { status: 500 })
+    }
+
+    // Send ticket email automatically if confirmed
+    if (status === "confirmed" && data) {
+      try {
+        await sendTicketEmail(data)
+      } catch (emailError) {
+        console.error("Email sending failed:", emailError)
+        // Don't fail the status update if email fails
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: `Registration ${status} successfully${status === "confirmed" ? " and ticket email sent" : ""}`,
+      data,
+    })
+  } catch (error) {
+    console.error("Error:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}
+
+async function sendTicketEmail(registration: any) {
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error("Email service not configured")
+  }
+
+  const emailContent = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <div style="text-align: center; margin-bottom: 30px;">
+        <h1 style="color: #dc2626; font-size: 36px; margin: 0;">TED<span style="color: #dc2626;">x</span>ECU</h1>
+        <p style="color: #6b7280; margin: 5px 0;">x = independently organized TED event</p>
       </div>
       
-      <!-- Main Content Area -->
-      <div style="
-        position: absolute;
-        top: 140px;
-        left: 40px;
-        right: 40px;
-        bottom: 40px;
-        display: flex;
-        gap: 40px;
-      ">
-        <!-- Left Section - Attendee Info -->
-        <div style="
-          flex: 1;
-          background: rgba(255, 255, 255, 0.05);
-          border-radius: 16px;
-          padding: 30px;
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          backdrop-filter: blur(10px);
-        ">
-          <div style="
-            font-size: 16px;
-            color: #ef4444;
-            font-weight: 600;
-            margin-bottom: 20px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-          ">Attendee Information</div>
-          
-          <div style="margin-bottom: 20px;">
-            <div style="
-              font-size: 12px;
-              color: #94a3b8;
-              margin-bottom: 5px;
-              text-transform: uppercase;
-              letter-spacing: 0.5px;
-            ">Full Name</div>
-            <div style="
-              font-size: 24px;
-              color: #ffffff;
-              font-weight: 700;
-              line-height: 1.2;
-            ">${name}</div>
-          </div>
-          
-          <div style="margin-bottom: 20px;">
-            <div style="
-              font-size: 12px;
-              color: #94a3b8;
-              margin-bottom: 5px;
-              text-transform: uppercase;
-              letter-spacing: 0.5px;
-            ">University</div>
-            <div style="
-              font-size: 16px;
-              color: #e2e8f0;
-              font-weight: 500;
-            ">${university}</div>
-          </div>
-          
-          <div style="margin-bottom: 20px;">
-            <div style="
-              font-size: 12px;
-              color: #94a3b8;
-              margin-bottom: 5px;
-              text-transform: uppercase;
-              letter-spacing: 0.5px;
-            ">Email</div>
-            <div style="
-              font-size: 14px;
-              color: #cbd5e1;
-              font-weight: 400;
-            ">${email}</div>
-          </div>
-          
-          <!-- Ticket ID Highlight -->
-          <div style="
-            background: linear-gradient(135deg, #ef4444, #dc2626);
-            border-radius: 12px;
-            padding: 15px;
-            margin-top: 20px;
-          ">
-            <div style="
-              font-size: 12px;
-              color: rgba(255, 255, 255, 0.8);
-              margin-bottom: 5px;
-              text-transform: uppercase;
-              letter-spacing: 0.5px;
-            ">Ticket ID</div>
-            <div style="
-              font-size: 28px;
-              color: white;
-              font-weight: 900;
-              font-family: 'Courier New', monospace;
-              letter-spacing: 2px;
-            ">${ticketId}</div>
-          </div>
-        </div>
-        
-        <!-- Right Section - Event Details -->
-        <div style="
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          gap: 20px;
-        ">
-          <!-- Event Details -->
-          <div style="
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 16px;
-            padding: 25px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            flex: 1;
-          ">
-            <div style="
-              font-size: 16px;
-              color: #ef4444;
-              font-weight: 600;
-              margin-bottom: 20px;
-              text-transform: uppercase;
-              letter-spacing: 1px;
-            ">Event Details</div>
-            
-            <div style="display: flex; flex-direction: column; gap: 15px;">
-              <div>
-                <div style="
-                  font-size: 12px;
-                  color: #94a3b8;
-                  margin-bottom: 5px;
-                  text-transform: uppercase;
-                  letter-spacing: 0.5px;
-                ">Date</div>
-                <div style="
-                  font-size: 18px;
-                  color: #ffffff;
-                  font-weight: 600;
-                ">${date}</div>
-              </div>
-              
-              <div>
-                <div style="
-                  font-size: 12px;
-                  color: #94a3b8;
-                  margin-bottom: 5px;
-                  text-transform: uppercase;
-                  letter-spacing: 0.5px;
-                ">Time</div>
-                <div style="
-                  font-size: 18px;
-                  color: #ffffff;
-                  font-weight: 600;
-                ">${time}</div>
-              </div>
-              
-              <div>
-                <div style="
-                  font-size: 12px;
-                  color: #94a3b8;
-                  margin-bottom: 5px;
-                  text-transform: uppercase;
-                  letter-spacing: 0.5px;
-                ">Venue</div>
-                <div style="
-                  font-size: 16px;
-                  color: #e2e8f0;
-                  font-weight: 500;
-                  line-height: 1.3;
-                ">${venue}</div>
-              </div>
-              
-              <div>
-                <div style="
-                  font-size: 12px;
-                  color: #94a3b8;
-                  margin-bottom: 5px;
-                  text-transform: uppercase;
-                  letter-spacing: 0.5px;
-                ">Admission</div>
-                <div style="
-                  font-size: 16px;
-                  color: #e2e8f0;
-                  font-weight: 500;
-                ">${seat}</div>
-              </div>
-            </div>
-          </div>
-          
-          <!-- QR Code Section -->
-          <div style="
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 16px;
-            padding: 20px;
-            text-align: center;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-          ">
-            <div style="
-              font-size: 12px;
-              color: #374151;
-              margin-bottom: 10px;
-              text-transform: uppercase;
-              letter-spacing: 0.5px;
-              font-weight: 600;
-            ">Scan for Entry</div>
-            <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(ticketId)}&bgcolor=ffffff&color=000000" 
-                 style="width: 120px; height: 120px; border-radius: 8px;" 
-                 alt="QR Code" />
-          </div>
-        </div>
+      <div style="background: linear-gradient(135deg, #dc2626, #b91c1c); color: white; padding: 30px; border-radius: 12px; text-align: center; margin-bottom: 30px;">
+        <h2 style="margin: 0 0 10px 0; font-size: 28px;">🎉 Your ticket is confirmed!</h2>
+        <p style="margin: 0; opacity: 0.9;">Get ready for an amazing experience!</p>
       </div>
       
-      <!-- Footer -->
-      <div style="
-        position: absolute;
-        bottom: 10px;
-        left: 40px;
-        right: 40px;
-        text-align: center;
-        font-size: 11px;
-        color: #64748b;
-        font-weight: 500;
-      ">
-        This ticket is valid for one person only • Present this ticket and a valid ID at the venue
+      <p style="font-size: 18px; color: #374151;">Dear ${registration.name},</p>
+      <p style="color: #6b7280; line-height: 1.6;">
+        Congratulations! Your payment has been confirmed and your ticket is ready.
+      </p>
+      
+      <div style="background: #f9fafb; padding: 25px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #dc2626;">
+        <h3 style="color: #374151; margin-top: 0;">🎫 Your Ticket Details</h3>
+        <p><strong>Name:</strong> ${registration.name}</p>
+        <p><strong>Email:</strong> ${registration.email}</p>
+        <p><strong>Ticket ID:</strong> <span style="color: #dc2626; font-weight: bold;">${registration.ticket_id}</span></p>
+        <p><strong>Date:</strong> June 20, 2025</p>
+        <p><strong>Time:</strong> 9:00 AM - 6:00 PM</p>
+        <p><strong>Venue:</strong> Egyptian Chinese University</p>
+      </div>
+      
+      <div style="background: #fef3c7; padding: 20px; border-radius: 8px; margin: 25px 0;">
+        <h4 style="color: #92400e; margin-top: 0;">📱 Important Instructions:</h4>
+        <ul style="color: #92400e; margin: 0; padding-left: 20px;">
+          <li>Present your Ticket ID (${registration.ticket_id}) at the venue</li>
+          <li>Arrive 30 minutes before the event starts</li>
+          <li>Bring a valid ID for verification</li>
+        </ul>
       </div>
     </div>
   `
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: "onboarding@resend.dev",
+      to: [registration.email],
+      subject: "🎫 Your TEDxECU Ticket - Payment Confirmed!",
+      html: emailContent,
+    }),
+  })
+
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.message || "Email sending failed")
+  }
+
+  // Update ticket_sent status
+  await supabase.from("registrations").update({ ticket_sent: true }).eq("id", registration.id)
 }

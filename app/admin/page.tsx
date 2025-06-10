@@ -9,7 +9,7 @@ export default function AdminPage() {
           <CardHeader>
             <div className="flex items-center justify-center gap-4">
               <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center">
-                <img src="/images/tedx-logo.png" alt="TEDx Logo" className="w-8 h-auto" />
+                <div className="text-red-600 font-bold text-sm">TEDx</div>
               </div>
               <CardTitle className="text-3xl text-center text-white font-bold">
                 TED<span className="text-red-500">x</span>ECU Admin Dashboard
